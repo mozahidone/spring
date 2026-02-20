@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trip-system-db-migration-chart.fullname" . }}
+  labels:
+    {{- include "trip-system-db-migration-chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "trip-system-db-migration-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "trip-system-db-migration-chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- with .Values.gitCommitId }}
+        gitCommitId: {{ . }}
+        {{- end }}
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "{{ .Values.service.targetPort }}"
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "trip-system-db-migration-chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- if .Values.image.registry  }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.namespace }}/{{ .Values.service.name }}:{{ .Values.service.version | default .Chart.AppVersion }}"
+          {{- else }}
+          image: "{{ .Values.image.namespace }}/{{ .Values.service.name }}:{{ .Values.service.version | default .Chart.AppVersion }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [ "/bin/bash", "-ce", 'flyway migrate;tail -f /dev/null' ]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+          #- name: sql-config
+          #  mountPath: "/flyway/sqlBase64"
+          #  readOnly: true 
+          - name: application-config
+            mountPath: "/flyway/conf"
+            readOnly: true 
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      #- name: sql-config
+      #  configMap:
+      #    name: {{ include "trip-system-db-migration-chart.fullname" . }}-sql
+      - name: application-config
+        configMap:
+          name: {{ include "trip-system-db-migration-chart.fullname" . }}
+          
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

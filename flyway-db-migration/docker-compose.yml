@@ -1,0 +1,9 @@
+version: '3'
+services:
+  flyway:
+    build:
+      context: trip-system-db-migration
+      no_cache: true
+    entrypoint: ["flyway", "migrate"]
+    volumes:
+      - ./config_local/flyway.conf:/flyway/conf/flyway.conf

@@ -1,0 +1,14 @@
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: {{ include "trip-system-db-migration-chart.fullname" . }}
+data:
+ {{- $configfolder := .Files.Glob (printf "config/%s/*" .Values.env )}}
+  {{ if $configfolder }}
+    {{ $root := . }}
+    {{ range $path, $bytes := $configfolder  }}
+    {{ base $path }}: '{{ $root.Files.Get $path | replace "\n" "\n\n"  }}'
+    {{ end }}
+  {{else}}
+    {{ fail (printf "config/%s/* config files not found" .Values.env ) }}
+  {{ end }}
